@@ -82,7 +82,8 @@ class OptimizadorApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Optimizador y Conversor Profesional de Imágenes")
+        # NOMBRE MODIFICADO AQUÍ
+        self.title("PiloPress")
         self.geometry("820x900")
         self.minsize(780, 820)
         ctk.set_appearance_mode("System")
@@ -468,7 +469,7 @@ class OptimizadorApp(ctk.CTk):
         if valor_seleccionado == "Carpeta entera":
             self.tipo_entrada_var.set("carpeta")
             self.lbl_origen.configure(text="Carpeta Origen:")
-            self.entry_origen.configure(placeholder_text="Selecciona la carpeta con las fotos originales...")
+            self.entry_origen.configure(placeholder_text="Selecciona la carpeta con las fotos originales...", state="readonly")
             # Mostrar fila origen simple, ocultar panel cola
             self.lbl_origen.grid()
             self.entry_origen.grid()
@@ -478,7 +479,7 @@ class OptimizadorApp(ctk.CTk):
         elif valor_seleccionado == "Una sola foto":
             self.tipo_entrada_var.set("imagen")
             self.lbl_origen.configure(text="Imagen Origen:")
-            self.entry_origen.configure(placeholder_text="Selecciona una sola imagen a optimizar...")
+            self.entry_origen.configure(placeholder_text="Selecciona una sola imagen a optimizar...", state="readonly")
             # Mostrar fila origen simple, ocultar panel cola
             self.lbl_origen.grid()
             self.entry_origen.grid()
