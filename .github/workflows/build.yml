@@ -8,11 +8,9 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
-permissions:
-  contents: write
-
 jobs:
-  release-binaries:
+  # --- TRABAJO 1: COMPILACIÓN MULTIPLATAFORMA EN PARALELO ---
+  compile:
     name: Compilar para ${{ matrix.os-name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -81,14 +79,36 @@ jobs:
         run: |
           mv ${{ matrix.raw-path }} dist/${{ matrix.final-name }}
 
-      # --- PUBLICACIÓN DIRECTA EN RELEASES ---
-      - name: Publicar binario en la Release "latest"
+      # --- GUARDAR TEMPORALMENTE ---
+      - name: Guardar paquete compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: binario-${{ matrix.os-name }}
+          path: dist/${{ matrix.final-name }}
+          retention-days: 1
+
+  # --- TRABAJO 2: PUBLICACIÓN ÚNICA SIN CONFLICTOS ---
+  publish:
+    name: Crear Release en GitHub
+    needs: compile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Descargar todos los binarios guardados
+        uses: actions/download-artifact@v4
+        with:
+          path: total-dist
+          merge-multiple: true
+
+      - name: Publicar todos los archivos juntos en la Release "latest"
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: "PiloPress (Última Versión Automatizada)"
-          body: "Compilación automática generada por GitHub Actions para todas las plataformas."
+          body: "Compilación automática multiplataforma generada de manera segura por GitHub Actions."
           prerelease: true
-          files: dist/${{ matrix.final-name }}
+          files: total-dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
