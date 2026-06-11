@@ -2,7 +2,7 @@ name: Compilación y Publicación (PiloPress)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "github-actions" ]
   workflow_dispatch: 
 
 env:
