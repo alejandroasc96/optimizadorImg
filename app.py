@@ -87,6 +87,7 @@ class OptimizadorApp(ctk.CTk):
         self.ruta_destino = ctk.StringVar()  
         self.ruta_backup = ctk.StringVar()   
         self.modo_trabajo_var = ctk.StringVar(value="sitio")
+        self.tipo_entrada_var = ctk.StringVar(value="carpeta")
         
         self.formato_salida_var = ctk.StringVar(value="WebP")
         self.eliminar_exif_var = ctk.BooleanVar(value=True)
@@ -124,18 +125,29 @@ class OptimizadorApp(ctk.CTk):
         lbl_titulo1 = ctk.CTkLabel(frame_flujo, text="📁 Origen y Modo de Trabajo", font=ctk.CTkFont(size=14, weight="bold"))
         lbl_titulo1.grid(row=0, column=0, columnspan=2, padx=15, pady=(12, 5), sticky="w")
 
-        # Carpeta Origen
-        ctk.CTkLabel(frame_flujo, text="Carpeta Origen:").grid(row=1, column=0, padx=15, pady=8, sticky="w")
+        # Tipo de Entrada
+        ctk.CTkLabel(frame_flujo, text="Tipo de Entrada:").grid(row=1, column=0, padx=15, pady=8, sticky="w")
+        self.seg_tipo_entrada = ctk.CTkSegmentedButton(
+            frame_flujo,
+            values=["Carpeta entera", "Una sola foto"],
+            command=self.cambiar_tipo_entrada
+        )
+        self.seg_tipo_entrada.grid(row=1, column=1, padx=10, pady=8, sticky="w")
+        self.seg_tipo_entrada.set("Carpeta entera")
+
+        # Origen (Carpeta o Archivo)
+        self.lbl_origen = ctk.CTkLabel(frame_flujo, text="Carpeta Origen:")
+        self.lbl_origen.grid(row=2, column=0, padx=15, pady=8, sticky="w")
         self.entry_origen = ctk.CTkEntry(frame_flujo, textvariable=self.ruta_origen, placeholder_text="Selecciona la carpeta con las fotos originales...", state="readonly")
-        self.entry_origen.grid(row=1, column=1, padx=10, pady=8, sticky="we")
+        self.entry_origen.grid(row=2, column=1, padx=10, pady=8, sticky="we")
         self.btn_explorar_origen = ctk.CTkButton(frame_flujo, text="Explorar...", width=100, command=self.seleccionar_origen)
-        self.btn_explorar_origen.grid(row=1, column=2, padx=15, pady=8)
+        self.btn_explorar_origen.grid(row=2, column=2, padx=15, pady=8)
 
         # Modo de Operación
-        ctk.CTkLabel(frame_flujo, text="Acción:").grid(row=2, column=0, padx=15, pady=8, sticky="w")
+        ctk.CTkLabel(frame_flujo, text="Acción:").grid(row=3, column=0, padx=15, pady=8, sticky="w")
         
         frame_modo_inline = ctk.CTkFrame(frame_flujo, fg_color="transparent")
-        frame_modo_inline.grid(row=2, column=1, columnspan=2, padx=10, pady=8, sticky="w")
+        frame_modo_inline.grid(row=3, column=1, columnspan=2, padx=10, pady=8, sticky="w")
         
         self.seg_modo = ctk.CTkSegmentedButton(
             frame_modo_inline, 
@@ -155,23 +167,23 @@ class OptimizadorApp(ctk.CTk):
 
         # Separador visual
         canvas_sep = ctk.CTkCanvas(frame_flujo, height=2, highlightthickness=0, bg="#404040" if ctk.get_appearance_mode() == "Dark" else "#d0d0d0")
-        canvas_sep.grid(row=3, column=0, columnspan=3, padx=15, pady=10, sticky="we")
+        canvas_sep.grid(row=4, column=0, columnspan=3, padx=15, pady=10, sticky="we")
 
         # Carpeta Destino (Exportar)
         self.lbl_destino = ctk.CTkLabel(frame_flujo, text="Carpeta Destino:")
-        self.lbl_destino.grid(row=4, column=0, padx=15, pady=8, sticky="w")
+        self.lbl_destino.grid(row=5, column=0, padx=15, pady=8, sticky="w")
         self.entry_destino = ctk.CTkEntry(frame_flujo, textvariable=self.ruta_destino)
-        self.entry_destino.grid(row=4, column=1, padx=10, pady=8, sticky="we")
+        self.entry_destino.grid(row=5, column=1, padx=10, pady=8, sticky="we")
         self.btn_explorar_destino = ctk.CTkButton(frame_flujo, text="Cambiar...", width=100, command=self.seleccionar_destino)
-        self.btn_explorar_destino.grid(row=4, column=2, padx=15, pady=8)
+        self.btn_explorar_destino.grid(row=5, column=2, padx=15, pady=8)
 
         # Carpeta Backup (Sitio)
         self.lbl_backup = ctk.CTkLabel(frame_flujo, text="Carpeta Backup:")
-        self.lbl_backup.grid(row=5, column=0, padx=15, pady=8, sticky="w")
+        self.lbl_backup.grid(row=6, column=0, padx=15, pady=8, sticky="w")
         self.entry_backup = ctk.CTkEntry(frame_flujo, textvariable=self.ruta_backup)
-        self.entry_backup.grid(row=5, column=1, padx=10, pady=8, sticky="we")
+        self.entry_backup.grid(row=6, column=1, padx=10, pady=8, sticky="we")
         self.btn_explorar_backup = ctk.CTkButton(frame_flujo, text="Cambiar...", width=100, command=self.seleccionar_backup)
-        self.btn_explorar_backup.grid(row=5, column=2, padx=15, pady=8)
+        self.btn_explorar_backup.grid(row=6, column=2, padx=15, pady=8)
 
         frame_flujo.columnconfigure(1, weight=1)
         self.cambiar_modo_trabajo("Optimizar en el sitio")
@@ -277,6 +289,20 @@ class OptimizadorApp(ctk.CTk):
 
 
     # --- LÓGICA DE CONTROL DINÁMICO UX ---
+    def cambiar_tipo_entrada(self, valor_seleccionado):
+        self.ruta_origen.set("")
+        self.ruta_backup.set("")
+        self.ruta_destino.set("")
+        
+        if valor_seleccionado == "Carpeta entera":
+            self.tipo_entrada_var.set("carpeta")
+            self.lbl_origen.configure(text="Carpeta Origen:")
+            self.entry_origen.configure(placeholder_text="Selecciona la carpeta con las fotos originales...")
+        else:
+            self.tipo_entrada_var.set("imagen")
+            self.lbl_origen.configure(text="Imagen Origen:")
+            self.entry_origen.configure(placeholder_text="Selecciona una sola imagen a optimizar...")
+
     def cambiar_modo_trabajo(self, valor_seleccionado):
         if valor_seleccionado == "Optimizar en el sitio":
             self.modo_trabajo_var.set("sitio")
@@ -300,10 +326,20 @@ class OptimizadorApp(ctk.CTk):
         self.calcular_rutas_automaticas()
 
     def seleccionar_origen(self):
-        carpeta = filedialog.askdirectory(title="Seleccionar carpeta de origen")
-        if carpeta:
-            self.ruta_origen.set(carpeta)
-            self.calcular_rutas_automaticas()
+        if self.tipo_entrada_var.get() == "carpeta":
+            carpeta = filedialog.askdirectory(title="Seleccionar carpeta de origen")
+            if carpeta:
+                self.ruta_origen.set(carpeta)
+                self.calcular_rutas_automaticas()
+        else:
+            extensiones_filtro = " ".join(f"*{ext}" for ext in EXTENSIONES_SOPORTADAS)
+            archivo = filedialog.askopenfilename(
+                title="Seleccionar imagen de origen",
+                filetypes=[("Imágenes soportadas", extensiones_filtro)]
+            )
+            if archivo:
+                self.ruta_origen.set(archivo)
+                self.calcular_rutas_automaticas()
 
     def calcular_rutas_automaticas(self):
         if self.ruta_origen.get():
@@ -314,8 +350,12 @@ class OptimizadorApp(ctk.CTk):
             self.entry_backup.configure(state="normal")
             self.entry_destino.configure(state="normal")
             
-            self.ruta_backup.set(str(origen / "raw-imagenes"))
-            self.ruta_destino.set(str(origen.parent / f"{origen.name}-optimizada"))
+            if origen.is_file():
+                self.ruta_backup.set(str(origen.parent / "raw-imagenes"))
+                self.ruta_destino.set(str(origen.parent / "optimizadas"))
+            else:
+                self.ruta_backup.set(str(origen / "raw-imagenes"))
+                self.ruta_destino.set(str(origen.parent / f"{origen.name}-optimizada"))
             
             self.entry_backup.configure(state=estado_b)
             self.entry_destino.configure(state=estado_d)
@@ -374,6 +414,7 @@ class OptimizadorApp(ctk.CTk):
         estado_ctk = "normal" if estado else "disabled"
         self.btn_iniciar.configure(state=estado_ctk)
         self.seg_modo.configure(state=estado_ctk)
+        self.seg_tipo_entrada.configure(state=estado_ctk)
         self.btn_explorar_origen.configure(state=estado_ctk)
         if self.modo_trabajo_var.get() == "sitio" and estado:
             self.btn_explorar_backup.configure(state="normal")
@@ -393,7 +434,8 @@ class OptimizadorApp(ctk.CTk):
         if self.esta_procesando: return
             
         if not self.ruta_origen.get():
-            self.escribir_log("❌ Error: Selecciona una carpeta de origen primero.")
+            tipo = "una carpeta" if self.tipo_entrada_var.get() == "carpeta" else "una imagen"
+            self.escribir_log(f"❌ Error: Selecciona {tipo} de origen primero.")
             return
 
         modo = self.modo_trabajo_var.get()
@@ -436,15 +478,20 @@ class OptimizadorApp(ctk.CTk):
         ext_destino = ".jpg" if config['formato'] == "JPEG" else f".{config['formato'].lower()}"
 
         archivos_a_procesar = []
-        for ruta_archivo in origen.rglob("*"):
-            if modo == "sitio" and (config['backup'] in ruta_archivo.parents or ruta_archivo == config['backup']):
-                continue
-            if ruta_archivo.is_file() and ruta_archivo.suffix.lower() in EXTENSIONES_SOPORTADAS:
-                archivos_a_procesar.append(ruta_archivo)
+        if origen.is_file():
+            if origen.suffix.lower() in EXTENSIONES_SOPORTADAS:
+                archivos_a_procesar.append(origen)
+        else:
+            for ruta_archivo in origen.rglob("*"):
+                if modo == "sitio" and (config['backup'] in ruta_archivo.parents or ruta_archivo == config['backup']):
+                    continue
+                if ruta_archivo.is_file() and ruta_archivo.suffix.lower() in EXTENSIONES_SOPORTADAS:
+                    archivos_a_procesar.append(ruta_archivo)
 
         total_archivos = len(archivos_a_procesar)
         if total_archivos == 0:
-            self.escribir_log("ℹ️ No se encontraron imágenes para optimizar en el directorio.")
+            msg = "ℹ️ No se encontró la imagen para optimizar." if origen.is_file() else "ℹ️ No se encontraron imágenes para optimizar en el directorio."
+            self.escribir_log(msg)
             self.finalizar_proceso()
             return
 
@@ -455,7 +502,7 @@ class OptimizadorApp(ctk.CTk):
         conteo_exitos = 0
 
         for indice, ruta_archivo in enumerate(archivos_a_procesar):
-            ruta_relativa = ruta_archivo.relative_to(origen)
+            ruta_relativa = Path(ruta_archivo.name) if origen.is_file() else ruta_archivo.relative_to(origen)
             self.escribir_log(f"[{indice + 1}/{total_archivos}] Procesando: {ruta_relativa}")
 
             peso_original = ruta_archivo.stat().st_size
