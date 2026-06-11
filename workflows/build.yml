@@ -1,0 +1,72 @@
+name: Compilación Multiplataforma (PiloPress)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  release-binaries:
+    name: Compilar para ${{ matrix.os-name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            os-name: Windows
+            artifact-path: dist/PiloPress.exe
+            output-name: PiloPress-Windows.exe
+
+          - os: ubuntu-latest
+            os-name: Linux
+            artifact-path: dist/PiloPress
+            output-name: PiloPress-Linux
+
+          - os: macos-latest
+            os-name: macOS
+            artifact-path: dist/PiloPress.app
+            output-name: PiloPress-macOS.app
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar entorno de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias del sistema (Solo Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+
+      - name: Instalar dependencias de Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install customtkinter pillow pyinstaller
+
+      - name: Compilar ejecutable con PyInstaller
+        run: |
+          pyinstaller --clean --onefile --windowed --collect-all customtkinter --name PiloPress app.py
+
+      - name: Comprimir paquete .app (Solo macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd dist
+          zip -r PiloPress-macOS.app.zip PiloPress.app
+          echo "ZIP_CREATED=true" >> $GITHUB_ENV
+
+      - name: Subir binario como artefacto de GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os-name }}-binario
+          path: |
+            ${{ matrix.os == 'macos-latest' && 'dist/PiloPress-macOS.app.zip' || matrix.artifact-path }}
+          if-no-files-found: error
+          retention-days: 14
