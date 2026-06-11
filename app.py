@@ -9,6 +9,12 @@ from tkinter import filedialog
 # Extensiones de imagen soportadas de entrada
 EXTENSIONES_SOPORTADAS = {'.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.webp', '.avif'}
 
+# Iconos por extensión para la cola
+ICONOS_FORMATO = {
+    '.jpg': '📷', '.jpeg': '📷', '.png': '🖼️',
+    '.webp': '🌐', '.tiff': '📄', '.bmp': '🗂️', '.avif': '✨'
+}
+
 class CTkTooltip:
     """Clase personalizada para mostrar información flotante moderna al pasar el ratón o hacer clic."""
     def __init__(self, widget, text, delay=300):
@@ -77,8 +83,8 @@ class OptimizadorApp(ctk.CTk):
         super().__init__()
 
         self.title("Optimizador y Conversor Profesional de Imágenes")
-        self.geometry("820x840")
-        self.minsize(780, 780)
+        self.geometry("820x900")
+        self.minsize(780, 820)
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
 
@@ -88,15 +94,19 @@ class OptimizadorApp(ctk.CTk):
         self.ruta_backup = ctk.StringVar()   
         self.modo_trabajo_var = ctk.StringVar(value="sitio")
         self.tipo_entrada_var = ctk.StringVar(value="carpeta")
-        
+
         self.formato_salida_var = ctk.StringVar(value="WebP")
         self.eliminar_exif_var = ctk.BooleanVar(value=True)
         self.calidad_var = ctk.IntVar(value=80)
         self.lossless_var = ctk.BooleanVar(value=False)
         self.esfuerzo_var = ctk.StringVar(value="6")
         self.max_size_var = ctk.StringVar(value="")
-        
+
         self.esta_procesando = False
+
+        # Cola de archivos para el modo selección múltiple
+        # Cada elemento es un objeto Path
+        self.cola_archivos: list[Path] = []
 
         self.construir_interfaz()
 
@@ -129,25 +139,75 @@ class OptimizadorApp(ctk.CTk):
         ctk.CTkLabel(frame_flujo, text="Tipo de Entrada:").grid(row=1, column=0, padx=15, pady=8, sticky="w")
         self.seg_tipo_entrada = ctk.CTkSegmentedButton(
             frame_flujo,
-            values=["Carpeta entera", "Una sola foto"],
+            values=["Carpeta entera", "Una sola foto", "Selección múltiple"],
             command=self.cambiar_tipo_entrada
         )
         self.seg_tipo_entrada.grid(row=1, column=1, padx=10, pady=8, sticky="w")
         self.seg_tipo_entrada.set("Carpeta entera")
 
-        # Origen (Carpeta o Archivo)
+        # Fila de origen simple (usada en modos carpeta e imagen única)
         self.lbl_origen = ctk.CTkLabel(frame_flujo, text="Carpeta Origen:")
         self.lbl_origen.grid(row=2, column=0, padx=15, pady=8, sticky="w")
-        self.entry_origen = ctk.CTkEntry(frame_flujo, textvariable=self.ruta_origen, placeholder_text="Selecciona la carpeta con las fotos originales...", state="readonly")
+        self.entry_origen = ctk.CTkEntry(
+            frame_flujo, textvariable=self.ruta_origen,
+            placeholder_text="Selecciona la carpeta con las fotos originales...",
+            state="readonly"
+        )
         self.entry_origen.grid(row=2, column=1, padx=10, pady=8, sticky="we")
         self.btn_explorar_origen = ctk.CTkButton(frame_flujo, text="Explorar...", width=100, command=self.seleccionar_origen)
         self.btn_explorar_origen.grid(row=2, column=2, padx=15, pady=8)
 
-        # Modo de Operación
-        ctk.CTkLabel(frame_flujo, text="Acción:").grid(row=3, column=0, padx=15, pady=8, sticky="w")
+        # Panel de cola múltiple (oculto por defecto)
+        self.frame_cola_wrapper = ctk.CTkFrame(frame_flujo, fg_color="transparent")
+        self.frame_cola_wrapper.grid(row=3, column=0, columnspan=3, padx=10, pady=(0, 5), sticky="we")
+        self.frame_cola_wrapper.grid_remove()  # Oculto inicialmente
+
+        # Cabecera de la cola con contador y botones de acción
+        frame_cola_header = ctk.CTkFrame(self.frame_cola_wrapper, fg_color="transparent")
+        frame_cola_header.pack(fill="x", pady=(5, 3))
+
+        self.lbl_contador_cola = ctk.CTkLabel(
+            frame_cola_header,
+            text="0 imágenes en cola",
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        self.lbl_contador_cola.pack(side="left", padx=5)
+
+        self.btn_vaciar_cola = ctk.CTkButton(
+            frame_cola_header, text="🗑 Vaciar cola",
+            width=110, height=28,
+            fg_color=("gray80", "gray25"),
+            text_color=("gray15", "gray90"),
+            hover_color=("#e05555", "#b03030"),
+            command=self.vaciar_cola
+        )
+        self.btn_vaciar_cola.pack(side="right", padx=5)
+
+        self.btn_anadir_mas = ctk.CTkButton(
+            frame_cola_header, text="➕ Añadir más",
+            width=110, height=28,
+            command=self.anadir_archivos_a_cola
+        )
+        self.btn_anadir_mas.pack(side="right", padx=5)
+
+        # Lista scrollable de archivos en cola
+        self.scroll_cola = ctk.CTkScrollableFrame(
+            self.frame_cola_wrapper,
+            height=160,
+            label_text=""
+        )
+        self.scroll_cola.pack(fill="x", pady=(0, 5))
+        self.scroll_cola.columnconfigure(1, weight=1)
+
+        # Separador visual
+        canvas_sep = ctk.CTkCanvas(frame_flujo, height=2, highlightthickness=0, bg="#404040" if ctk.get_appearance_mode() == "Dark" else "#d0d0d0")
+        canvas_sep.grid(row=4, column=0, columnspan=3, padx=15, pady=10, sticky="we")
+
+        # Modo de Operación (fila 5 para dejar espacio a la cola)
+        ctk.CTkLabel(frame_flujo, text="Acción:").grid(row=5, column=0, padx=15, pady=8, sticky="w")
         
         frame_modo_inline = ctk.CTkFrame(frame_flujo, fg_color="transparent")
-        frame_modo_inline.grid(row=3, column=1, columnspan=2, padx=10, pady=8, sticky="w")
+        frame_modo_inline.grid(row=5, column=1, columnspan=2, padx=10, pady=8, sticky="w")
         
         self.seg_modo = ctk.CTkSegmentedButton(
             frame_modo_inline, 
@@ -155,7 +215,6 @@ class OptimizadorApp(ctk.CTk):
             command=self.cambiar_modo_trabajo
         )
         self.seg_modo.pack(side="left")
-        # 🛠️ SOLUCIÓN: Forzar la selección visual inicial en la interfaz
         self.seg_modo.set("Optimizar en el sitio")
         
         self.crear_icono_info(
@@ -165,25 +224,21 @@ class OptimizadorApp(ctk.CTk):
             padx=10
         )
 
-        # Separador visual
-        canvas_sep = ctk.CTkCanvas(frame_flujo, height=2, highlightthickness=0, bg="#404040" if ctk.get_appearance_mode() == "Dark" else "#d0d0d0")
-        canvas_sep.grid(row=4, column=0, columnspan=3, padx=15, pady=10, sticky="we")
-
         # Carpeta Destino (Exportar)
         self.lbl_destino = ctk.CTkLabel(frame_flujo, text="Carpeta Destino:")
-        self.lbl_destino.grid(row=5, column=0, padx=15, pady=8, sticky="w")
+        self.lbl_destino.grid(row=6, column=0, padx=15, pady=8, sticky="w")
         self.entry_destino = ctk.CTkEntry(frame_flujo, textvariable=self.ruta_destino)
-        self.entry_destino.grid(row=5, column=1, padx=10, pady=8, sticky="we")
+        self.entry_destino.grid(row=6, column=1, padx=10, pady=8, sticky="we")
         self.btn_explorar_destino = ctk.CTkButton(frame_flujo, text="Cambiar...", width=100, command=self.seleccionar_destino)
-        self.btn_explorar_destino.grid(row=5, column=2, padx=15, pady=8)
+        self.btn_explorar_destino.grid(row=6, column=2, padx=15, pady=8)
 
         # Carpeta Backup (Sitio)
         self.lbl_backup = ctk.CTkLabel(frame_flujo, text="Carpeta Backup:")
-        self.lbl_backup.grid(row=6, column=0, padx=15, pady=8, sticky="w")
+        self.lbl_backup.grid(row=7, column=0, padx=15, pady=8, sticky="w")
         self.entry_backup = ctk.CTkEntry(frame_flujo, textvariable=self.ruta_backup)
-        self.entry_backup.grid(row=6, column=1, padx=10, pady=8, sticky="we")
+        self.entry_backup.grid(row=7, column=1, padx=10, pady=8, sticky="we")
         self.btn_explorar_backup = ctk.CTkButton(frame_flujo, text="Cambiar...", width=100, command=self.seleccionar_backup)
-        self.btn_explorar_backup.grid(row=6, column=2, padx=15, pady=8)
+        self.btn_explorar_backup.grid(row=7, column=2, padx=15, pady=8)
 
         frame_flujo.columnconfigure(1, weight=1)
         self.cambiar_modo_trabajo("Optimizar en el sitio")
@@ -288,20 +343,161 @@ class OptimizadorApp(ctk.CTk):
         self.log_box.pack(fill="both", expand=True)
 
 
+    # --- LÓGICA DE COLA MÚLTIPLE ---
+
+    def anadir_archivos_a_cola(self):
+        """Abre el explorador para añadir múltiples archivos a la cola."""
+        extensiones_filtro = " ".join(f"*{ext}" for ext in EXTENSIONES_SOPORTADAS)
+        archivos = filedialog.askopenfilenames(
+            title="Seleccionar imágenes para la cola",
+            filetypes=[("Imágenes soportadas", extensiones_filtro)]
+        )
+        if not archivos:
+            return
+
+        nuevos = 0
+        rutas_existentes = {str(p) for p in self.cola_archivos}
+        for archivo in archivos:
+            ruta = Path(archivo)
+            if str(ruta) not in rutas_existentes:
+                self.cola_archivos.append(ruta)
+                rutas_existentes.add(str(ruta))
+                nuevos += 1
+
+        if nuevos > 0:
+            self.refrescar_panel_cola()
+            self.calcular_rutas_automaticas_multiple()
+
+    def refrescar_panel_cola(self):
+        """Redibuja todas las filas de la lista scrollable."""
+        # Limpiar widgets actuales
+        for widget in self.scroll_cola.winfo_children():
+            widget.destroy()
+
+        for indice, ruta in enumerate(self.cola_archivos):
+            self._crear_fila_cola(indice, ruta)
+
+        total = len(self.cola_archivos)
+        self.lbl_contador_cola.configure(
+            text=f"{total} imagen{'es' if total != 1 else ''} en cola"
+        )
+
+    def _crear_fila_cola(self, indice: int, ruta: Path):
+        """Crea una fila individual en el panel de cola."""
+        frame_fila = ctk.CTkFrame(self.scroll_cola, fg_color=("gray90", "gray20"), corner_radius=6)
+        frame_fila.pack(fill="x", padx=4, pady=2)
+        frame_fila.columnconfigure(1, weight=1)
+
+        # Icono del formato
+        icono = ICONOS_FORMATO.get(ruta.suffix.lower(), "📁")
+        ctk.CTkLabel(frame_fila, text=icono, width=28, font=ctk.CTkFont(size=14)).grid(
+            row=0, column=0, padx=(8, 4), pady=6
+        )
+
+        # Nombre del archivo
+        ctk.CTkLabel(
+            frame_fila, text=ruta.name,
+            anchor="w", font=ctk.CTkFont(size=12)
+        ).grid(row=0, column=1, padx=4, pady=6, sticky="we")
+
+        # Peso del archivo
+        try:
+            peso_txt = self.formatear_peso(ruta.stat().st_size)
+        except OSError:
+            peso_txt = "?"
+        ctk.CTkLabel(
+            frame_fila, text=peso_txt,
+            text_color="gray", font=ctk.CTkFont(size=11), width=65
+        ).grid(row=0, column=2, padx=4, pady=6)
+
+        # Botón eliminar
+        ctk.CTkButton(
+            frame_fila, text="✕", width=28, height=28,
+            fg_color="transparent",
+            text_color=("gray40", "gray60"),
+            hover_color=("#e05555", "#b03030"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=lambda i=indice: self.eliminar_de_cola(i)
+        ).grid(row=0, column=3, padx=(4, 8), pady=6)
+
+    def eliminar_de_cola(self, indice: int):
+        """Elimina un archivo de la cola por su índice y refresca."""
+        if 0 <= indice < len(self.cola_archivos):
+            self.cola_archivos.pop(indice)
+            self.refrescar_panel_cola()
+            if self.cola_archivos:
+                self.calcular_rutas_automaticas_multiple()
+            else:
+                self.ruta_backup.set("")
+                self.ruta_destino.set("")
+
+    def vaciar_cola(self):
+        """Elimina todos los archivos de la cola."""
+        self.cola_archivos.clear()
+        self.ruta_backup.set("")
+        self.ruta_destino.set("")
+        self.refrescar_panel_cola()
+
+    def calcular_rutas_automaticas_multiple(self):
+        """Calcula rutas de backup/destino basándose en la carpeta más común de la cola."""
+        if not self.cola_archivos:
+            return
+
+        # Usar la carpeta padre del primer archivo como referencia
+        carpeta_comun = self.cola_archivos[0].parent
+        estado_b = self.entry_backup.cget("state")
+        estado_d = self.entry_destino.cget("state")
+
+        self.entry_backup.configure(state="normal")
+        self.entry_destino.configure(state="normal")
+
+        self.ruta_backup.set(str(carpeta_comun / "raw-imagenes"))
+        self.ruta_destino.set(str(carpeta_comun / "optimizadas"))
+
+        self.entry_backup.configure(state=estado_b)
+        self.entry_destino.configure(state=estado_d)
+
+
     # --- LÓGICA DE CONTROL DINÁMICO UX ---
+
     def cambiar_tipo_entrada(self, valor_seleccionado):
         self.ruta_origen.set("")
         self.ruta_backup.set("")
         self.ruta_destino.set("")
-        
+
         if valor_seleccionado == "Carpeta entera":
             self.tipo_entrada_var.set("carpeta")
             self.lbl_origen.configure(text="Carpeta Origen:")
             self.entry_origen.configure(placeholder_text="Selecciona la carpeta con las fotos originales...")
-        else:
+            # Mostrar fila origen simple, ocultar panel cola
+            self.lbl_origen.grid()
+            self.entry_origen.grid()
+            self.btn_explorar_origen.grid()
+            self.frame_cola_wrapper.grid_remove()
+
+        elif valor_seleccionado == "Una sola foto":
             self.tipo_entrada_var.set("imagen")
             self.lbl_origen.configure(text="Imagen Origen:")
             self.entry_origen.configure(placeholder_text="Selecciona una sola imagen a optimizar...")
+            # Mostrar fila origen simple, ocultar panel cola
+            self.lbl_origen.grid()
+            self.entry_origen.grid()
+            self.btn_explorar_origen.grid()
+            self.frame_cola_wrapper.grid_remove()
+
+        else:  # Selección múltiple
+            self.tipo_entrada_var.set("multiple")
+            # Ocultar fila origen simple, mostrar panel cola
+            self.lbl_origen.grid_remove()
+            self.entry_origen.grid_remove()
+            self.btn_explorar_origen.grid_remove()
+            self.frame_cola_wrapper.grid()
+            # Si ya había archivos en cola los mostramos, si no abrimos el explorador
+            if not self.cola_archivos:
+                self.anadir_archivos_a_cola()
+            else:
+                self.refrescar_panel_cola()
+                self.calcular_rutas_automaticas_multiple()
 
     def cambiar_modo_trabajo(self, valor_seleccionado):
         if valor_seleccionado == "Optimizar en el sitio":
@@ -342,6 +538,9 @@ class OptimizadorApp(ctk.CTk):
                 self.calcular_rutas_automaticas()
 
     def calcular_rutas_automaticas(self):
+        if self.tipo_entrada_var.get() == "multiple":
+            self.calcular_rutas_automaticas_multiple()
+            return
         if self.ruta_origen.get():
             origen = Path(self.ruta_origen.get())
             estado_b = self.entry_backup.cget("state")
@@ -416,6 +615,8 @@ class OptimizadorApp(ctk.CTk):
         self.seg_modo.configure(state=estado_ctk)
         self.seg_tipo_entrada.configure(state=estado_ctk)
         self.btn_explorar_origen.configure(state=estado_ctk)
+        self.btn_anadir_mas.configure(state=estado_ctk)
+        self.btn_vaciar_cola.configure(state=estado_ctk)
         if self.modo_trabajo_var.get() == "sitio" and estado:
             self.btn_explorar_backup.configure(state="normal")
         elif self.modo_trabajo_var.get() == "exportar" and estado:
@@ -431,12 +632,21 @@ class OptimizadorApp(ctk.CTk):
 
     # --- MOTOR DE PROCESAMIENTO ---
     def iniciar_hilo_optimizacion(self):
-        if self.esta_procesando: return
-            
-        if not self.ruta_origen.get():
-            tipo = "una carpeta" if self.tipo_entrada_var.get() == "carpeta" else "una imagen"
-            self.escribir_log(f"❌ Error: Selecciona {tipo} de origen primero.")
+        if self.esta_procesando:
             return
+
+        tipo = self.tipo_entrada_var.get()
+
+        # Validación según modo
+        if tipo == "multiple":
+            if not self.cola_archivos:
+                self.escribir_log("❌ Error: La cola de selección múltiple está vacía.")
+                return
+        else:
+            if not self.ruta_origen.get():
+                label = "una carpeta" if tipo == "carpeta" else "una imagen"
+                self.escribir_log(f"❌ Error: Selecciona {label} de origen primero.")
+                return
 
         modo = self.modo_trabajo_var.get()
         if modo == "sitio" and not self.ruta_backup.get():
@@ -455,7 +665,9 @@ class OptimizadorApp(ctk.CTk):
         max_size = int(max_size_str) if max_size_str.isdigit() else None
 
         configuracion = {
-            'origen': Path(self.ruta_origen.get()).resolve(),
+            'tipo': tipo,
+            'origen': Path(self.ruta_origen.get()).resolve() if tipo != "multiple" else None,
+            'cola': list(self.cola_archivos) if tipo == "multiple" else [],
             'destino': Path(self.ruta_destino.get()).resolve() if modo == "exportar" else None,
             'backup': Path(self.ruta_backup.get()).resolve() if modo == "sitio" else None,
             'modo': modo,
@@ -473,15 +685,25 @@ class OptimizadorApp(ctk.CTk):
         threading.Thread(target=self.procesar_imagenes, args=(configuracion,), daemon=True).start()
 
     def procesar_imagenes(self, config):
-        origen = config['origen']
+        tipo = config['tipo']
         modo = config['modo']
         ext_destino = ".jpg" if config['formato'] == "JPEG" else f".{config['formato'].lower()}"
 
+        # --- Recopilar archivos a procesar ---
         archivos_a_procesar = []
-        if origen.is_file():
-            if origen.suffix.lower() in EXTENSIONES_SOPORTADAS:
+
+        if tipo == "multiple":
+            # Usar directamente la lista de la cola
+            for ruta in config['cola']:
+                if ruta.is_file() and ruta.suffix.lower() in EXTENSIONES_SOPORTADAS:
+                    archivos_a_procesar.append(ruta)
+        elif tipo == "imagen":
+            origen = config['origen']
+            if origen.is_file() and origen.suffix.lower() in EXTENSIONES_SOPORTADAS:
                 archivos_a_procesar.append(origen)
         else:
+            # Modo carpeta: recorrido recursivo
+            origen = config['origen']
             for ruta_archivo in origen.rglob("*"):
                 if modo == "sitio" and (config['backup'] in ruta_archivo.parents or ruta_archivo == config['backup']):
                     continue
@@ -490,8 +712,7 @@ class OptimizadorApp(ctk.CTk):
 
         total_archivos = len(archivos_a_procesar)
         if total_archivos == 0:
-            msg = "ℹ️ No se encontró la imagen para optimizar." if origen.is_file() else "ℹ️ No se encontraron imágenes para optimizar en el directorio."
-            self.escribir_log(msg)
+            self.escribir_log("ℹ️ No se encontraron imágenes para optimizar.")
             self.finalizar_proceso()
             return
 
@@ -502,7 +723,12 @@ class OptimizadorApp(ctk.CTk):
         conteo_exitos = 0
 
         for indice, ruta_archivo in enumerate(archivos_a_procesar):
-            ruta_relativa = Path(ruta_archivo.name) if origen.is_file() else ruta_archivo.relative_to(origen)
+            # Calcular ruta relativa según el modo
+            if tipo in ("imagen", "multiple"):
+                ruta_relativa = Path(ruta_archivo.name)
+            else:
+                ruta_relativa = ruta_archivo.relative_to(config['origen'])
+
             self.escribir_log(f"[{indice + 1}/{total_archivos}] Procesando: {ruta_relativa}")
 
             peso_original = ruta_archivo.stat().st_size
