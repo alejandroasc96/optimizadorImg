@@ -1,6 +1,7 @@
 import os
 import shutil
 import threading
+import io
 from pathlib import Path
 from PIL import Image
 import customtkinter as ctk
@@ -77,8 +78,8 @@ class OptimizadorApp(ctk.CTk):
         super().__init__()
 
         self.title("Optimizador y Conversor Profesional de Imágenes")
-        self.geometry("820x840")
-        self.minsize(780, 780)
+        self.geometry("1200x840")
+        self.minsize(1100, 780)
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
 
@@ -97,6 +98,7 @@ class OptimizadorApp(ctk.CTk):
         self.max_size_var = ctk.StringVar(value="")
         
         self.esta_procesando = False
+        self.imagen_original_pil = None
 
         self.construir_interfaz()
 
@@ -118,9 +120,22 @@ class OptimizadorApp(ctk.CTk):
         return btn_info
 
     def construir_interfaz(self):
+        # Configurar grid de 2 columnas en la ventana principal
+        self.grid_columnconfigure(0, weight=6)
+        self.grid_columnconfigure(1, weight=4)
+        self.grid_rowconfigure(0, weight=1)
+
+        # Panel Izquierdo (Controles)
+        frame_izq = ctk.CTkFrame(self, fg_color="transparent")
+        frame_izq.grid(row=0, column=0, padx=(20, 10), pady=15, sticky="nsew")
+
+        # Panel Derecho (Previsualización)
+        self.frame_der = ctk.CTkFrame(self)
+        self.frame_der.grid(row=0, column=1, padx=(10, 20), pady=15, sticky="nsew")
+
         # --- SECCIÓN 1: CONFIGURACIÓN DE FLUJO ---
-        frame_flujo = ctk.CTkFrame(self)
-        frame_flujo.pack(pady=(15, 10), padx=20, fill="x")
+        frame_flujo = ctk.CTkFrame(frame_izq)
+        frame_flujo.pack(pady=(0, 10), fill="x")
         
         lbl_titulo1 = ctk.CTkLabel(frame_flujo, text="📁 Origen y Modo de Trabajo", font=ctk.CTkFont(size=14, weight="bold"))
         lbl_titulo1.grid(row=0, column=0, columnspan=2, padx=15, pady=(12, 5), sticky="w")
@@ -190,8 +205,8 @@ class OptimizadorApp(ctk.CTk):
 
 
         # --- SECCIÓN 2: AJUSTES DE COMPRESIÓN ---
-        frame_ajustes = ctk.CTkFrame(self)
-        frame_ajustes.pack(pady=10, padx=20, fill="x")
+        frame_ajustes = ctk.CTkFrame(frame_izq)
+        frame_ajustes.pack(pady=10, fill="x")
         
         lbl_titulo2 = ctk.CTkLabel(frame_ajustes, text="⚙️ Parámetros de Salida del Códec", font=ctk.CTkFont(size=14, weight="bold"))
         lbl_titulo2.grid(row=0, column=0, columnspan=4, padx=15, pady=(12, 5), sticky="w")
@@ -214,7 +229,12 @@ class OptimizadorApp(ctk.CTk):
         # Switch Metadatos (EXIF)
         frame_switch_exif = ctk.CTkFrame(frame_ajustes, fg_color="transparent")
         frame_switch_exif.grid(row=1, column=3, padx=15, pady=10, sticky="e")
-        self.switch_exif = ctk.CTkSwitch(frame_switch_exif, text="Limpiar metadatos (EXIF)", variable=self.eliminar_exif_var)
+        self.switch_exif = ctk.CTkSwitch(
+            frame_switch_exif, 
+            text="Limpiar metadatos (EXIF)", 
+            variable=self.eliminar_exif_var,
+            command=self.actualizar_previsualizacion
+        )
         self.switch_exif.pack(side="left")
         self.crear_icono_info(frame_switch_exif, 
                               "Elimina datos invisibles de la foto (Coordenadas GPS, fecha de captura, modelo del móvil).\n"
@@ -238,7 +258,12 @@ class OptimizadorApp(ctk.CTk):
         # Lossless
         frame_switch_lossless = ctk.CTkFrame(frame_ajustes, fg_color="transparent")
         frame_switch_lossless.grid(row=2, column=3, padx=15, pady=10, sticky="e")
-        self.switch_lossless = ctk.CTkSwitch(frame_switch_lossless, text="Compresión sin pérdidas", variable=self.lossless_var, command=self.toggle_lossless)
+        self.switch_lossless = ctk.CTkSwitch(
+            frame_switch_lossless, 
+            text="Compresión sin pérdidas", 
+            variable=self.lossless_var, 
+            command=self.toggle_lossless
+        )
         self.switch_lossless.pack(side="left")
         self.crear_icono_info(frame_switch_lossless, 
                               "Exclusivo de WebP. Guarda la imagen respetando el 100% de la fidelidad matemática original.\n"
@@ -252,7 +277,13 @@ class OptimizadorApp(ctk.CTk):
                               "Nivel de análisis del compresor (0 = Instantáneo pero más pesado, 6 = Lento pero ultraoptimizado).\n"
                               "Se aconseja dejarlo en 6 para que el archivo pese lo mínimo posible.", padx=5)
 
-        self.combo_esfuerzo = ctk.CTkOptionMenu(frame_ajustes, values=[str(i) for i in range(7)], width=120, variable=self.esfuerzo_var)
+        self.combo_esfuerzo = ctk.CTkOptionMenu(
+            frame_ajustes, 
+            values=[str(i) for i in range(7)], 
+            width=120, 
+            variable=self.esfuerzo_var,
+            command=lambda _: self.actualizar_previsualizacion()
+        )
         self.combo_esfuerzo.grid(row=3, column=1, padx=10, pady=10, sticky="w")
 
         # Redimensionado Max
@@ -266,13 +297,14 @@ class OptimizadorApp(ctk.CTk):
 
         self.entry_max_size = ctk.CTkEntry(frame_ajustes, textvariable=self.max_size_var, placeholder_text="Ej: 1920", width=120)
         self.entry_max_size.grid(row=3, column=3, padx=15, pady=10, sticky="w")
+        self.entry_max_size.bind("<KeyRelease>", lambda e: self.actualizar_previsualizacion())
 
         frame_ajustes.columnconfigure(1, weight=1)
 
 
         # --- SECCIÓN 3: CONSOLA DE REGISTRO Y LANZADOR ---
-        frame_control = ctk.CTkFrame(self, fg_color="transparent")
-        frame_control.pack(pady=10, padx=20, fill="both", expand=True)
+        frame_control = ctk.CTkFrame(frame_izq, fg_color="transparent")
+        frame_control.pack(pady=10, fill="both", expand=True)
 
         self.btn_iniciar = ctk.CTkButton(
             frame_control, text="🚀 Iniciar Optimización", height=45,
@@ -288,11 +320,55 @@ class OptimizadorApp(ctk.CTk):
         self.log_box.pack(fill="both", expand=True)
 
 
+        # --- SECCIÓN DE PREVISUALIZACIÓN ---
+        lbl_titulo_preview = ctk.CTkLabel(
+            self.frame_der, 
+            text="🔍 Vista Previa en Tiempo Real", 
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        lbl_titulo_preview.pack(pady=(15, 10), padx=15, anchor="w")
+
+        self.frame_preview_estado = ctk.CTkFrame(self.frame_der, fg_color="transparent")
+        self.frame_preview_estado.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        self.lbl_no_preview = ctk.CTkLabel(
+            self.frame_preview_estado,
+            text="Selecciona 'Una sola foto' en la izquierda\ny elige una imagen para ver la previsualización.",
+            font=ctk.CTkFont(size=12),
+            text_color="gray"
+        )
+        self.lbl_no_preview.pack(expand=True)
+
+        self.frame_comparacion = ctk.CTkFrame(self.frame_preview_estado, fg_color="transparent")
+        
+        self.frame_antes = ctk.CTkFrame(self.frame_comparacion)
+        self.frame_antes.pack(side="left", fill="both", expand=True, padx=(0, 5), pady=5)
+        
+        ctk.CTkLabel(self.frame_antes, text="ANTES (Original)", font=ctk.CTkFont(weight="bold")).pack(pady=5)
+        self.lbl_peso_antes = ctk.CTkLabel(self.frame_antes, text="- KB", text_color="gray")
+        self.lbl_peso_antes.pack(pady=(0, 5))
+        
+        self.lbl_img_antes = ctk.CTkLabel(self.frame_antes, text="Sin imagen")
+        self.lbl_img_antes.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.frame_despues = ctk.CTkFrame(self.frame_comparacion)
+        self.frame_despues.pack(side="right", fill="both", expand=True, padx=(5, 0), pady=5)
+        
+        ctk.CTkLabel(self.frame_despues, text="DESPUÉS (Optimizado)", font=ctk.CTkFont(weight="bold")).pack(pady=5)
+        self.lbl_peso_despues = ctk.CTkLabel(self.frame_despues, text="- KB", text_color="gray")
+        self.lbl_peso_despues.pack(pady=(0, 5))
+        
+        self.lbl_img_despues = ctk.CTkLabel(self.frame_despues, text="Sin imagen")
+        self.lbl_img_despues.pack(fill="both", expand=True, padx=10, pady=10)
+
+
     # --- LÓGICA DE CONTROL DINÁMICO UX ---
     def cambiar_tipo_entrada(self, valor_seleccionado):
         self.ruta_origen.set("")
         self.ruta_backup.set("")
         self.ruta_destino.set("")
+        self.imagen_original_pil = None
+        self.mostrar_vista_previa_ui(False)
         
         if valor_seleccionado == "Carpeta entera":
             self.tipo_entrada_var.set("carpeta")
@@ -324,12 +400,15 @@ class OptimizadorApp(ctk.CTk):
             self.lbl_backup.configure(text_color="gray")
         
         self.calcular_rutas_automaticas()
+        self.actualizar_previsualizacion()
 
     def seleccionar_origen(self):
         if self.tipo_entrada_var.get() == "carpeta":
             carpeta = filedialog.askdirectory(title="Seleccionar carpeta de origen")
             if carpeta:
                 self.ruta_origen.set(carpeta)
+                self.imagen_original_pil = None
+                self.mostrar_vista_previa_ui(False)
                 self.calcular_rutas_automaticas()
         else:
             extensiones_filtro = " ".join(f"*{ext}" for ext in EXTENSIONES_SOPORTADAS)
@@ -340,6 +419,14 @@ class OptimizadorApp(ctk.CTk):
             if archivo:
                 self.ruta_origen.set(archivo)
                 self.calcular_rutas_automaticas()
+                try:
+                    self.imagen_original_pil = Image.open(archivo)
+                    self.mostrar_vista_previa_ui(True)
+                    self.actualizar_previsualizacion()
+                except Exception as e:
+                    self.imagen_original_pil = None
+                    self.mostrar_vista_previa_ui(False)
+                    self.escribir_log(f"❌ Error al cargar vista previa: {e}")
 
     def calcular_rutas_automaticas(self):
         if self.ruta_origen.get():
@@ -373,6 +460,7 @@ class OptimizadorApp(ctk.CTk):
     def actualizar_label_calidad(self, valor):
         self.lbl_calidad_val.configure(text=str(int(valor)))
         self.calidad_var.set(int(valor))
+        self.actualizar_previsualizacion()
 
     def toggle_lossless(self):
         if self.lossless_var.get():
@@ -383,6 +471,7 @@ class OptimizadorApp(ctk.CTk):
             self.slider_calidad.configure(state="normal")
             self.lbl_calidad_val.configure(text_color=("black", "white"))
             self.lbl_calidad_txt.configure(text_color=("black", "white"))
+        self.actualizar_previsualizacion()
 
     def ajustar_controles_por_formato(self, formato):
         if formato == "PNG":
@@ -398,6 +487,138 @@ class OptimizadorApp(ctk.CTk):
             self.switch_lossless.configure(state="normal")
             self.combo_esfuerzo.configure(state="normal")
             self.toggle_lossless()
+        self.actualizar_previsualizacion()
+
+    def mostrar_vista_previa_ui(self, visible):
+        # Guarda: los widgets pueden no estar construidos aún durante __init__
+        if not hasattr(self, 'frame_comparacion'):
+            return
+        if visible:
+            self.lbl_no_preview.pack_forget()
+            self.frame_comparacion.pack(fill="both", expand=True)
+        else:
+            self.frame_comparacion.pack_forget()
+            self.lbl_no_preview.pack(expand=True)
+
+    def actualizar_previsualizacion(self, *args):
+        # Guarda: los widgets pueden no estar construidos aún durante __init__
+        if not hasattr(self, 'frame_comparacion'):
+            return
+        if not self.imagen_original_pil or self.tipo_entrada_var.get() != "imagen":
+            self.mostrar_vista_previa_ui(False)
+            return
+
+        self.mostrar_vista_previa_ui(True)
+        
+        # Leer lado maximo
+        max_size_str = self.max_size_var.get().strip()
+        max_size = int(max_size_str) if max_size_str.isdigit() else None
+        
+        try:
+            # 1. Aplicar redimensionado a una copia temporal si excede lado maximo
+            img_temp = self.imagen_original_pil.copy()
+            if max_size:
+                ancho, alto = img_temp.size
+                lado_mayor = max(ancho, alto)
+                if lado_mayor > max_size:
+                    escala = max_size / lado_mayor
+                    img_temp = img_temp.resize((int(ancho * escala), int(alto * escala)), Image.Resampling.LANCZOS)
+            
+            # 2. Conversión de colores para JPEG si aplica (evitar RGBA en JPEG)
+            formato_pil = self.formato_salida_var.get()
+            if formato_pil == "JPEG":
+                if img_temp.mode in ("RGBA", "P", "LA"):
+                    fondo = Image.new("RGB", img_temp.size, (255, 255, 255))
+                    fondo.paste(img_temp, mask=img_temp.split()[-1] if img_temp.mode in ("RGBA", "LA") else None)
+                    img_temp = fondo
+                elif img_temp.mode != "RGB":
+                    img_temp = img_temp.convert("RGB")
+
+            # 3. Preparar argumentos de guardado
+            save_kwargs = {}
+            perfil_icc = img_temp.info.get('icc_profile')
+            if perfil_icc:
+                save_kwargs['icc_profile'] = perfil_icc
+
+            if not self.eliminar_exif_var.get():
+                exif_data = img_temp.info.get('exif')
+                if exif_data:
+                    save_kwargs['exif'] = exif_data
+
+            if formato_pil == "WebP":
+                save_kwargs.update({
+                    'format': 'WEBP',
+                    'quality': self.calidad_var.get(),
+                    'lossless': self.lossless_var.get(),
+                    'method': int(self.esfuerzo_var.get()),
+                    'exact': False
+                })
+            elif formato_pil == "JPEG":
+                save_kwargs.update({
+                    'format': 'JPEG',
+                    'quality': self.calidad_var.get(),
+                    'optimize': True
+                })
+            elif formato_pil == "PNG":
+                save_kwargs.update({
+                    'format': 'PNG',
+                    'optimize': True
+                })
+
+            # 4. Guardar en buffer en memoria (BytesIO)
+            buffer = io.BytesIO()
+            img_temp.save(buffer, **save_kwargs)
+            peso_simulado = len(buffer.getvalue())
+            
+            # 5. Obtener peso original
+            ruta_orig = Path(self.ruta_origen.get())
+            peso_original = ruta_orig.stat().st_size
+            
+            # Actualizar textos de peso
+            self.lbl_peso_antes.configure(text=f"Tamaño: {self.formatear_peso(peso_original)}")
+            
+            porcentaje_ahorro = ""
+            if peso_original > 0:
+                ahorro = peso_original - peso_simulado
+                pct = (ahorro / peso_original) * 100
+                porcentaje_ahorro = f" ({'-' if pct >= 0 else '+'}{abs(pct):.1f}%)"
+            self.lbl_peso_despues.configure(text=f"Tamaño: {self.formatear_peso(peso_simulado)}{porcentaje_ahorro}")
+
+            # 6. Generar las imágenes CTkImage para la previsualización
+            # Queremos encajar ambas en un espacio cuadrado máximo (ej: 280x280) manteniendo el aspect ratio
+            max_preview_w, max_preview_h = 280, 280
+            
+            # Original
+            ancho_o, alto_o = self.imagen_original_pil.size
+            escala_o = min(max_preview_w / ancho_o, max_preview_h / alto_o)
+            w_o, h_o = int(ancho_o * escala_o), int(alto_o * escala_o)
+            
+            self.preview_original_ctk = ctk.CTkImage(
+                light_image=self.imagen_original_pil,
+                dark_image=self.imagen_original_pil,
+                size=(w_o, h_o)
+            )
+            self.lbl_img_antes.configure(image=self.preview_original_ctk, text="")
+            
+            # Optimizado
+            buffer.seek(0)
+            img_opt_pil = Image.open(buffer)
+            img_opt_pil.load()
+            ancho_p, alto_p = img_opt_pil.size
+            escala_p = min(max_preview_w / ancho_p, max_preview_h / alto_p)
+            w_p, h_p = int(ancho_p * escala_p), int(alto_p * escala_p)
+            
+            self.preview_optimizado_ctk = ctk.CTkImage(
+                light_image=img_opt_pil,
+                dark_image=img_opt_pil,
+                size=(w_p, h_p)
+            )
+            self.lbl_img_despues.configure(image=self.preview_optimizado_ctk, text="")
+
+        except Exception as e:
+            self.lbl_img_despues.configure(image=None, text="Error previsualización")
+            self.lbl_peso_despues.configure(text="-")
+            self.escribir_log(f"⚠️ Error al actualizar previsualización: {e}")
 
     def escribir_log(self, mensaje):
         def actualizar_gui():
