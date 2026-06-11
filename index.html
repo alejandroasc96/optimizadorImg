@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PiloPress — Compresión Profesional de Imágenes (Beta 0.5)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#121212',
+                            appBg: '#242424', 
+                            innerBg: '#1e1e1e', 
+                            accent: '#1f538d', 
+                            accentHover: '#2a6cb8',
+                            textMuted: '#a0a0a0'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-brand-dark text-gray-100 min-h-screen antialiased selection:bg-brand-accent selection:text-white">
+
+    <header class="max-w-6xl mx-auto px-6 py-6 flex justify-between items-center border-b border-neutral-800">
+        <div class="flex items-center gap-2 font-bold text-lg tracking-tight">
+            <span class="text-2xl">✨</span> PiloPress
+            <span class="text-xs bg-neutral-800 text-blue-400 px-2 py-0.5 rounded-full font-mono border border-neutral-700">v0.5-beta</span>
+        </div>
+        <nav class="flex items-center gap-6 text-sm text-brand-textMuted">
+            <a href="#caracteristicas" class="hover:text-white transition-colors">Características</a>
+            <a href="#como-funciona" class="hover:text-white transition-colors">Cómo Funciona</a>
+            <a href="https://github.com" target="_blank" class="flex items-center gap-1 bg-neutral-800 hover:bg-neutral-700 text-white px-3 py-1.5 rounded-lg transition-all border border-neutral-700">
+                <span>GitHub</span>
+            </a>
+        </nav>
+    </header>
+
+    <section class="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+            Optimiza tus imágenes para la web <br class="hidden sm:inline">
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">sin perder el control</span>.
+        </h1>
+        <p class="text-lg sm:text-xl text-brand-textMuted max-w-2xl mx-auto mb-10 leading-relaxed">
+            Un optimizador de escritorio multiplataforma, ultra-rápido y 100% privado. Diseñado para procesar lotes masivos y convertirlos a formatos modernos eficientemente.
+        </p>
+
+        <div class="flex flex-col items-center justify-center gap-4">
+            <a id="btn-cta" href="#" class="inline-flex items-center gap-3 bg-brand-accent hover:bg-brand-accentHover text-white font-semibold px-8 py-4 rounded-xl transition-all transform hover:-translate-y-0.5 shadow-lg shadow-blue-900/20 w-full sm:w-auto justify-center">
+                <span>Descargar para tu Sistema</span>
+            </a>
+            <p id="os-subtext" class="text-xs text-brand-textMuted font-mono">
+                Detectando entorno de ejecución...
+            </p>
+            
+            <div class="mt-4 flex gap-4 text-xs text-neutral-500">
+                <a href="#" class="hover:underline">Windows (.exe)</a> • 
+                <a href="#" class="hover:underline">macOS (.dmg)</a> • 
+                <a href="#" class="hover:underline">Linux (.AppImage)</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="max-w-4xl mx-auto px-6 mb-24">
+        <p class="text-center text-xs text-neutral-500 mb-4 uppercase tracking-wider font-semibold">Interfaz real de la aplicación</p>
+        
+        <div class="bg-brand-appBg rounded-lg border border-neutral-700 shadow-2xl overflow-hidden">
+            <div class="bg-[#111111] flex items-center justify-between px-4 py-2.5 select-none">
+                <div class="flex gap-2">
+                    <span class="w-3 h-3 rounded-full bg-neutral-700 block"></span>
+                    <span class="w-3 h-3 rounded-full bg-neutral-700 block"></span>
+                    <span class="w-3 h-3 rounded-full bg-neutral-700 block"></span>
+                </div>
+                <div class="text-xs font-sans text-neutral-400">PiloPress</div>
+                <div class="w-10"></div>
+            </div>
+
+            <div class="p-5 space-y-4 font-sans text-xs text-gray-300">
+                
+                <div class="border border-neutral-800 rounded p-4 space-y-4 bg-[#2b2b2b]/40">
+                    <div class="font-bold text-sm text-gray-200 flex items-center gap-1">📁 Origen y Modo de Trabajo</div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-4 items-center gap-2">
+                        <div>Tipo de Entrada:</div>
+                        <div class="md:col-span-3 flex gap-1 bg-brand-innerBg p-1 rounded max-w-sm">
+                            <span class="bg-brand-accent text-white px-3 py-1 rounded text-[11px] font-medium">Carpeta entera</span>
+                            <span class="text-neutral-400 px-3 py-1 text-[11px]">Una sola foto</span>
+                            <span class="text-neutral-400 px-3 py-1 text-[11px]">Selección múltiple</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 items-center gap-2">
+                        <div>Carpeta Origen:</div>
+                        <div class="md:col-span-2 bg-brand-innerBg border border-neutral-700 h-7 rounded px-2 flex items-center text-neutral-500"></div>
+                        <div class="text-right"><span class="bg-brand-accent px-4 py-1.5 rounded text-white font-medium cursor-default">Explorar...</span></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 items-center gap-2 pt-2 border-t border-neutral-800/60">
+                        <div>Acción:</div>
+                        <div class="md:col-span-3 flex items-center gap-3">
+                            <div class="flex gap-1 bg-brand-innerBg p-1 rounded">
+                                <span class="bg-brand-accent text-white px-3 py-1 rounded text-[11px] font-medium">Optimizar en el sitio</span>
+                                <span class="text-neutral-400 px-3 py-1 text-[11px]">Exportar a nueva carpeta</span>
+                            </div>
+                            <span class="text-blue-400 font-bold text-sm">ⓘ</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 items-center gap-2">
+                        <div class="text-neutral-500">Carpeta Destino:</div>
+                        <div class="md:col-span-2 bg-brand-innerBg border border-neutral-800 h-7 rounded opacity-50"></div>
+                        <div class="text-right"><span class="bg-neutral-700 px-4 py-1.5 rounded text-neutral-400 cursor-default opacity-50">Cambiar...</span></div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 items-center gap-2">
+                        <div>Carpeta Backup:</div>
+                        <div class="md:col-span-2 bg-brand-innerBg border border-neutral-700 h-7 rounded px-2 flex items-center text-neutral-500"></div>
+                        <div class="text-right"><span class="bg-brand-accent px-4 py-1.5 rounded text-white font-medium cursor-default">Cambiar...</span></div>
+                    </div>
+                </div>
+
+                <div class="border border-neutral-800 rounded p-4 space-y-4 bg-[#2b2b2b]/40">
+                    <div class="font-bold text-sm text-gray-200 flex items-center gap-1">⚙️ Parámetros de Salida del Códec</div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1">Formato: <span class="text-blue-400">ⓘ</span></div>
+                            <div class="bg-brand-innerBg border border-neutral-700 px-3 py-1 rounded w-32 flex justify-between items-center">
+                                <span>WebP</span> <span class="text-[9px] text-neutral-500">▼</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-2">
+                            <span class="w-8 h-4 bg-brand-accent rounded-full relative inline-block"><span class="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full"></span></span>
+                            <span>Limpiar metadatos (EXIF)</span> <span class="text-blue-400">ⓘ</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1">Calidad: <span class="text-blue-400">ⓘ</span></div>
+                            <div class="flex items-center gap-3 w-full max-w-[200px] mx-4">
+                                <div class="w-full bg-neutral-700 h-1 rounded-full relative"><span class="absolute left-3/4 -top-1 w-3 h-3 bg-brand-accent rounded-full"></span></div>
+                                <span class="font-mono">80</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-2">
+                            <span class="w-8 h-4 bg-neutral-700 rounded-full relative inline-block"><span class="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full"></span></span>
+                            <span class="text-neutral-400">Compresión sin pérdidas</span> <span class="text-blue-400">ⓘ</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1">Esfuerzo CPU: <span class="text-blue-400">ⓘ</span></div>
+                            <div class="bg-brand-innerBg border border-neutral-700 px-3 py-1 rounded w-32 flex justify-between items-center">
+                                <span>6</span> <span class="text-[9px] text-neutral-500">▼</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-end gap-2">
+                            <div class="flex items-center gap-1">Lado Máx (px): <span class="text-blue-400">ⓘ</span></div>
+                            <div class="bg-brand-innerBg border border-neutral-700 h-7 rounded w-28"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <div class="bg-brand-accent text-white text-center font-bold py-2.5 rounded text-sm tracking-wide shadow cursor-default select-none">
+                        🚀 Iniciar Optimización
+                    </div>
+                </div>
+
+                <div class="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
+                    <div class="bg-brand-accent w-1/12 h-full rounded-full"></div>
+                </div>
+
+                <div class="bg-brand-innerBg border border-neutral-800 rounded p-3 font-mono text-[11px] text-neutral-500 h-32 select-none">
+                    // Esperando parámetros de origen para iniciar la cola...
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section id="caracteristicas" class="max-w-5xl mx-auto px-6 py-12 border-t border-neutral-900">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-white mb-2">Todo lo que necesitas, sin florituras.</h2>
+            <p class="text-brand-textMuted">El control de un script avanzado con la comodidad de una interfaz nativa.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-neutral-900/60 p-6 rounded-xl border border-neutral-800/80">
+                <div class="text-2xl mb-3">🗂️</div>
+                <h3 class="text-lg font-bold text-white mb-2">Procesamiento Flexible</h3>
+                <p class="text-sm text-brand-textMuted leading-relaxed">
+                    Soporta escaneos recursivos de carpetas enteras, ejecuciones de una sola foto o la potente cola de selección múltiple con cálculo inteligente de rutas de salida.
+                </p>
+            </div>
+            <div class="bg-neutral-900/60 p-6 rounded-xl border border-neutral-800/80">
+                <div class="text-2xl mb-3">⚡</div>
+                <h3 class="text-lg font-bold text-white mb-2">Compresión Fina de Códecs</h3>
+                <p class="text-sm text-brand-textMuted leading-relaxed">
+                    Ajusta de forma matemática el procesamiento. Configura el nivel de esfuerzo de la CPU (0 a 6), activa compresión sin pérdidas (*lossless*) nativa para WebP o fuerza escalados de píxeles máximos de forma proporcional.
+                </p>
+            </div>
+            <div class="bg-neutral-900/60 p-6 rounded-xl border border-neutral-800/80">
+                <div class="text-2xl mb-3">🛡️</div>
+                <h3 class="text-lg font-bold text-white mb-2">Privacidad y Limpieza EXIF</h3>
+                <p class="text-sm text-brand-textMuted leading-relaxed">
+                    Elimina de forma automatizada los metadatos ocultos e innecesarios de tus imágenes (coordenadas GPS, modelo del dispositivo, fecha de captura). Menos peso, más seguridad.
+                </p>
+            </div>
+            <div class="bg-neutral-900/60 p-6 rounded-xl border border-neutral-800/80">
+                <div class="text-2xl mb-3">🔄</div>
+                <h3 class="text-lg font-bold text-white mb-2">Flujo de Trabajo Seguro</h3>
+                <p class="text-sm text-brand-textMuted leading-relaxed">
+                    Trabaja con tranquilidad. El modo "En el sitio" optimiza el directorio original creando previamente un backup limpio en la carpeta interna `raw-imagenes` de respaldo.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section id="como-funciona" class="max-w-4xl mx-auto px-6 py-20 border-t border-neutral-900">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-white mb-2">Flujo en 3 pasos rápidos</h2>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 relative">
+            <div class="text-center">
+                <div class="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center font-bold text-blue-400 mx-auto mb-4">1</div>
+                <h4 class="font-bold mb-1">Carga el Origen</h4>
+                <p class="text-xs text-brand-textMuted">Suelta una carpeta o arma una selección múltiple de imágenes en cola.</p>
+            </div>
+            <div class="text-center">
+                <div class="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center font-bold text-blue-400 mx-auto mb-4">2</div>
+                <h4 class="font-bold mb-1">Modula el Códec</h4>
+                <p class="text-xs text-brand-textMuted">Elige WebP, JPEG o PNG y personaliza la calidad y las dimensiones del lado máximo.</p>
+            </div>
+            <div class="text-center">
+                <div class="w-10 h-10 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center font-bold text-blue-400 mx-auto mb-4">3</div>
+                <h4 class="font-bold mb-1">Ejecuta en un Hilo</h4>
+                <p class="text-xs text-brand-textMuted">Pulsa Iniciar. La app procesará en paralelo sin bloquear ni congelar el software.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="max-w-6xl mx-auto px-6 py-12 border-t border-neutral-900 text-center text-xs text-neutral-600 space-y-2">
+        <p>PiloPress es un software de código abierto distribuido bajo términos de desarrollo comunitario.</p>
+        <p>© 2026 Proyectos Beta. Ejecutando de forma local y segura sin recolección de telemetría.</p>
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const btnCta = document.getElementById("btn-cta");
+            const subtext = document.getElementById("os-subtext");
+            
+            let userAgent = window.navigator.userAgent.toLowerCase();
+            let platform = window.navigator?.userAgentData?.platform?.toLowerCase() || window.navigator.platform.toLowerCase();
+            
+            let osName = "tu sistema";
+            let btnText = "Descargar código fuente (.zip)";
+
+            if (platform.includes("win") || userAgent.includes("win")) {
+                osName = "Windows";
+                btnText = "Descargar para Windows (.exe)";
+            } else if (platform.includes("mac") || userAgent.includes("mac")) {
+                osName = "macOS";
+                btnText = "Descargar para macOS (.dmg)";
+            } else if (platform.includes("linux") || userAgent.includes("linux")) {
+                osName = "Linux";
+                btnText = "Descargar para Linux (.AppImage)";
+            }
+
+            btnCta.querySelector("span").textContent = btnText;
+            subtext.textContent = `Compilación binaria directa para ${osName}.`;
+        });
+    </script>
+</body>
+</html>
