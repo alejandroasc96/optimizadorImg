@@ -1,0 +1,114 @@
+name: Compilación y Publicación (PiloPress)
+
+on:
+  push:
+    branches: [ "github-actions" ]
+  workflow_dispatch: 
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  # --- TRABAJO 1: COMPILACIÓN MULTIPLATAFORMA EN PARALELO ---
+  compile:
+    name: Compilar para ${{ matrix.os-name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            os-name: Windows
+            raw-path: dist/PiloPress.exe
+            final-name: PiloPress-Windows.exe
+
+          - os: ubuntu-latest
+            os-name: Linux
+            raw-path: dist/PiloPress
+            final-name: PiloPress-Linux
+
+          - os: macos-latest
+            os-name: macOS
+            raw-path: dist/PiloPress-macOS.app.zip
+            final-name: PiloPress-macOS.zip
+
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      # --- CONFIGURACIÓN DE PYTHON ---
+      - name: Configurar Python (Windows y Linux)
+        if: matrix.os != 'macos-latest'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar Python con Tkinter via Homebrew (Solo macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install python@3.11 tcl-tk
+          echo "/opt/homebrew/opt/python@3.11/bin" >> $GITHUB_PATH
+
+      # --- DEPENDENCIAS ---
+      - name: Instalar dependencias del sistema (Solo Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk tk-dev patchelf
+
+      - name: Instalar librerías de Python
+        run: |
+          python -m pip install --upgrade pip || python3 -m pip install --upgrade pip
+          python -m pip install customtkinter pillow pyinstaller || python3 -m pip install customtkinter pillow pyinstaller
+
+      # --- COMPILACIÓN ---
+      - name: Compilar ejecutable con PyInstaller
+        run: |
+          pyinstaller --clean --onefile --windowed --collect-all customtkinter --name PiloPress app.py || python3 -m PyInstaller --clean --onefile --windowed --collect-all customtkinter --name PiloPress app.py
+
+      # --- POST-PROCESADO (Solo macOS) ---
+      - name: Comprimir paquete .app (Solo macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd dist
+          zip -r PiloPress-macOS.app.zip PiloPress.app
+
+      # --- RENOMBRADO SEGURO ---
+      - name: Preparar archivo final
+        shell: bash
+        run: |
+          mv ${{ matrix.raw-path }} dist/${{ matrix.final-name }}
+
+      # --- GUARDAR TEMPORALMENTE ---
+      - name: Guardar paquete compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: binario-${{ matrix.os-name }}
+          path: dist/${{ matrix.final-name }}
+          retention-days: 1
+
+  # --- TRABAJO 2: PUBLICACIÓN ÚNICA SIN CONFLICTOS ---
+  publish:
+    name: Crear Release en GitHub
+    needs: compile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Descargar todos los binarios guardados
+        uses: actions/download-artifact@v4
+        with:
+          path: total-dist
+          merge-multiple: true
+
+      - name: Publicar todos los archivos juntos en la Release "latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "PiloPress (Última Versión Automatizada)"
+          body: "Compilación automática multiplataforma generada de manera segura por GitHub Actions."
+          prerelease: true
+          files: total-dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

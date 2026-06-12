@@ -263,22 +263,34 @@
             let userAgent = window.navigator.userAgent.toLowerCase();
             let platform = window.navigator?.userAgentData?.platform?.toLowerCase() || window.navigator.platform.toLowerCase();
             
+            const baseReleaseUrl = "https://github.com/alejandroasc96/PiloPress/releases/download/latest/";
+
             let osName = "tu sistema";
             let btnText = "Descargar código fuente (.zip)";
+            let downloadUrl = "https://github.com/alejandroasc96/PiloPress/archive/refs/heads/main.zip";
 
             if (platform.includes("win") || userAgent.includes("win")) {
                 osName = "Windows";
                 btnText = "Descargar para Windows (.exe)";
+                downloadUrl = baseReleaseUrl + "PiloPress-Windows.exe";
             } else if (platform.includes("mac") || userAgent.includes("mac")) {
                 osName = "macOS";
-                btnText = "Descargar para macOS (.dmg)";
+                btnText = "Descargar para macOS (.zip)";
+                downloadUrl = baseReleaseUrl + "PiloPress-macOS.zip";
             } else if (platform.includes("linux") || userAgent.includes("linux")) {
                 osName = "Linux";
-                btnText = "Descargar para Linux (.AppImage)";
+                btnText = "Descargar para Linux";
+                downloadUrl = baseReleaseUrl + "PiloPress-Linux";
             }
 
-            btnCta.querySelector("span").textContent = btnText;
-            subtext.textContent = `Compilación binaria directa para ${osName}.`;
+            if (btnCta) {
+                const textSpan = btnCta.querySelector("span");
+                if (textSpan) textSpan.textContent = btnText;
+                btnCta.setAttribute("href", downloadUrl);
+            }
+            if (subtext) {
+                subtext.textContent = `Compilación binaria directa para ${osName}.`;
+            }
         });
     </script>
 </body>
