@@ -101,7 +101,19 @@ class OptimizadorApp(ctk.CTk):
         self.calidad_var = ctk.IntVar(value=80)
         self.lossless_var = ctk.BooleanVar(value=False)
         self.esfuerzo_var = ctk.StringVar(value="6")
-        self.max_size_var = ctk.StringVar(value="")
+        self.max_size_var = ctk.StringVar(value="")     # px para modo personalizado
+
+        # Presets de redimensionado máximo
+        self.PRESETS_MAX_SIZE = {
+            "Sin redimensionar (original)": None,
+            "Miniatura web (800px)": 800,
+            "Redes sociales (1080px)": 1080,
+            "HD – Web estándar (1280px)": 1280,
+            "Full HD (1920px)": 1920,
+            "2K (2560px)": 2560,
+            "Personalizado...": "custom",
+        }
+        self.preset_max_size_var = ctk.StringVar(value="Sin redimensionar (original)")
 
         self.esta_procesando = False
 
@@ -311,17 +323,36 @@ class OptimizadorApp(ctk.CTk):
         self.combo_esfuerzo = ctk.CTkOptionMenu(frame_ajustes, values=[str(i) for i in range(7)], width=120, variable=self.esfuerzo_var)
         self.combo_esfuerzo.grid(row=3, column=1, padx=10, pady=10, sticky="w")
 
-        # Redimensionado Max
+        # Redimensionado Máx — preset desplegable
         frame_lbl_max = ctk.CTkFrame(frame_ajustes, fg_color="transparent")
         frame_lbl_max.grid(row=3, column=2, padx=10, pady=10, sticky="e")
-        ctk.CTkLabel(frame_lbl_max, text="Lado Máx (px):").pack(side="left")
-        self.crear_icono_info(frame_lbl_max, 
-                              "Si tus imágenes son gigantescas (ej. 5000px), introduce un límite (ej. 1920).\n"
-                              "El script las encogerá proporcionalmente para evitar subir resoluciones excesivas a la web.\n"
-                              "Déjalo vacío para conservar el tamaño intacto.", padx=5)
+        ctk.CTkLabel(frame_lbl_max, text="Tamaño máximo:").pack(side="left")
+        self.crear_icono_info(frame_lbl_max,
+                              "Reduce el lado más largo de la imagen si supera el límite elegido.\n"
+                              "El reescalado es proporcional (sin deformar).\n"
+                              "'Sin redimensionar' conserva las dimensiones originales intactas.", padx=5)
 
-        self.entry_max_size = ctk.CTkEntry(frame_ajustes, textvariable=self.max_size_var, placeholder_text="Ej: 1920", width=120)
-        self.entry_max_size.grid(row=3, column=3, padx=15, pady=10, sticky="w")
+        # Contenedor para el combo + campo personalizado en la misma celda
+        frame_max_controles = ctk.CTkFrame(frame_ajustes, fg_color="transparent")
+        frame_max_controles.grid(row=3, column=3, padx=15, pady=10, sticky="w")
+
+        self.combo_max_size = ctk.CTkOptionMenu(
+            frame_max_controles,
+            values=list(self.PRESETS_MAX_SIZE.keys()),
+            variable=self.preset_max_size_var,
+            width=200,
+            command=self.cambiar_preset_max_size
+        )
+        self.combo_max_size.pack(side="left")
+
+        self.entry_max_size = ctk.CTkEntry(
+            frame_max_controles,
+            textvariable=self.max_size_var,
+            placeholder_text="píxeles",
+            width=80
+        )
+        # Oculto por defecto; sólo visible con "Personalizado..."
+        self.entry_max_size.pack_forget()
 
         frame_ajustes.columnconfigure(1, weight=1)
 
@@ -618,6 +649,9 @@ class OptimizadorApp(ctk.CTk):
         self.btn_explorar_origen.configure(state=estado_ctk)
         self.btn_anadir_mas.configure(state=estado_ctk)
         self.btn_vaciar_cola.configure(state=estado_ctk)
+        self.combo_max_size.configure(state=estado_ctk)
+        if self.preset_max_size_var.get() == "Personalizado...":
+            self.entry_max_size.configure(state=estado_ctk)
         if self.modo_trabajo_var.get() == "sitio" and estado:
             self.btn_explorar_backup.configure(state="normal")
         elif self.modo_trabajo_var.get() == "exportar" and estado:
@@ -630,8 +664,107 @@ class OptimizadorApp(ctk.CTk):
             return f"{bytes_val / 1024:.2f} KB"
         return f"{bytes_val} Bytes"
 
+    def cambiar_preset_max_size(self, seleccion: str):
+        """Muestra u oculta el campo de píxeles personalizado según la selección del combo."""
+        if seleccion == "Personalizado...":
+            self.max_size_var.set("")
+            self.entry_max_size.pack(side="left", padx=(8, 0))
+            self.entry_max_size.focus()
+        else:
+            self.max_size_var.set("")
+            self.entry_max_size.pack_forget()
 
-    # --- MOTOR DE PROCESAMIENTO ---
+    def resolver_max_size(self) -> int | None:
+        """Devuelve el valor en píxeles del preset seleccionado, o None si no aplica."""
+        preset = self.preset_max_size_var.get()
+        if preset == "Personalizado...":
+            valor_str = self.max_size_var.get().strip()
+            return int(valor_str) if valor_str.isdigit() and int(valor_str) > 0 else None
+        return self.PRESETS_MAX_SIZE.get(preset, None)
+
+    def resolver_conflicto_destino(self, ruta: Path) -> str:
+        """Muestra un diálogo de elección cuando la carpeta destino ya existe y tiene contenido.
+        Devuelve: 'conservar', 'nueva' o 'cancelar'.
+        """
+        resultado = {"decision": "cancelar"}
+
+        dialogo = ctk.CTkToplevel(self)
+        dialogo.title("Carpeta destino ya existe")
+        dialogo.geometry("480x260")
+        dialogo.resizable(False, False)
+        dialogo.grab_set()   # Modal: bloquea la ventana principal
+        dialogo.focus_force()
+        dialogo.attributes("-topmost", True)
+
+        # Centrar respecto a la ventana principal
+        self.update_idletasks()
+        x = self.winfo_x() + (self.winfo_width() - 480) // 2
+        y = self.winfo_y() + (self.winfo_height() - 260) // 2
+        dialogo.geometry(f"480x260+{x}+{y}")
+
+        # Icono de advertencia y mensaje
+        ctk.CTkLabel(
+            dialogo,
+            text="⚠️  La carpeta destino ya existe y contiene archivos",
+            font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(pady=(20, 6), padx=20)
+
+        ctk.CTkLabel(
+            dialogo,
+            text=f"'{ruta.name}'\n\n¿Qué deseas hacer?",
+            font=ctk.CTkFont(size=12),
+            text_color="gray",
+            justify="center"
+        ).pack(pady=(0, 16), padx=20)
+
+        frame_botones = ctk.CTkFrame(dialogo, fg_color="transparent")
+        frame_botones.pack(fill="x", padx=24, pady=(0, 20))
+
+        def elegir(opcion):
+            resultado["decision"] = opcion
+            dialogo.grab_release()
+            dialogo.destroy()
+
+        ctk.CTkButton(
+            frame_botones,
+            text="Conservar contenido",
+            width=140,
+            fg_color=("gray75", "gray30"),
+            text_color=("gray10", "gray90"),
+            hover_color=("gray65", "gray40"),
+            command=lambda: elegir("conservar")
+        ).pack(side="left", expand=True, padx=4)
+
+        ctk.CTkButton(
+            frame_botones,
+            text="Crear carpeta nueva",
+            width=140,
+            command=lambda: elegir("nueva")
+        ).pack(side="left", expand=True, padx=4)
+
+        ctk.CTkButton(
+            frame_botones,
+            text="Cancelar",
+            width=100,
+            fg_color=("#c0392b", "#922b21"),
+            hover_color=("#e74c3c", "#b03a2e"),
+            command=lambda: elegir("cancelar")
+        ).pack(side="left", expand=True, padx=4)
+
+        self.wait_window(dialogo)
+        return resultado["decision"]
+
+    def generar_carpeta_con_sufijo(self, ruta_base: Path) -> Path:
+        """Genera una ruta única añadiendo un sufijo numérico si la carpeta ya existe.
+        Ejemplo: carpeta-optimizada → carpeta-optimizada_2 → carpeta-optimizada_3
+        """
+        contador = 2
+        nueva_ruta = ruta_base.parent / f"{ruta_base.name}_{contador}"
+        while nueva_ruta.exists():
+            contador += 1
+            nueva_ruta = ruta_base.parent / f"{ruta_base.name}_{contador}"
+        return nueva_ruta
+
     def iniciar_hilo_optimizacion(self):
         if self.esta_procesando:
             return
@@ -657,13 +790,26 @@ class OptimizadorApp(ctk.CTk):
             self.escribir_log("❌ Error: Se requiere una carpeta de Destino para exportar.")
             return
 
+        # --- Comprobación de conflicto de carpeta destino ---
+        if modo == "exportar":
+            ruta_destino_propuesta = Path(self.ruta_destino.get()).resolve()
+            if ruta_destino_propuesta.exists() and any(ruta_destino_propuesta.iterdir()):
+                decision = self.resolver_conflicto_destino(ruta_destino_propuesta)
+                if decision == "cancelar":
+                    self.escribir_log("ℹ️ Proceso cancelado por el usuario.")
+                    return
+                elif decision == "nueva":
+                    nueva_ruta = self.generar_carpeta_con_sufijo(ruta_destino_propuesta)
+                    self.ruta_destino.set(str(nueva_ruta))
+                    self.escribir_log(f"📁 Se usará una nueva carpeta: {nueva_ruta.name}")
+                # Si decision == "conservar", continuamos con la ruta tal cual
+
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
         self.actualizar_barra_progreso(0)
 
-        max_size_str = self.max_size_var.get().strip()
-        max_size = int(max_size_str) if max_size_str.isdigit() else None
+        max_size = self.resolver_max_size()
 
         configuracion = {
             'tipo': tipo,
