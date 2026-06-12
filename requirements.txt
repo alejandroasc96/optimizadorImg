@@ -1,0 +1,12 @@
+# PiloPress — Dependencias
+# Generado con: pip freeze (entorno .venv del proyecto)
+#
+# Instalar con:  pip install -r requirements.txt
+
+# Motor de procesamiento y conversión de imágenes
+Pillow==12.2.0
+
+# Interfaz gráfica moderna (incluye darkdetect y packaging como subdependencias)
+customtkinter==5.2.2
+darkdetect==0.8.0
+packaging==26.2
